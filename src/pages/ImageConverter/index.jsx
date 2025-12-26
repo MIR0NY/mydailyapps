@@ -2,23 +2,22 @@ import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import UnifiedDropZone from '../../components/UnifiedDropZone';
+import UnifiedDropZone from '../../components/UnifiedDropZone.jsx';
 import { convertImage } from '../../utils/converter';
-import { Settings, FolderOpen, FileType, Check, Download, FileText, Zap, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Settings, FileText, Zap, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
 function ImageConverter() {
   const [files, setFiles] = useState([]);
   const [isConverting, setIsConverting] = useState(false);
-  const [outputHandle, setOutputHandle] = useState(null);
-  const [outputFolderName, setOutputFolderName] = useState('');
   
   // Settings
   const [outputFormat, setOutputFormat] = useState('image/jpeg');
   const [quality, setQuality] = useState(0.9);
   const [targetSizeKB, setTargetSizeKB] = useState('');
   const [makePdf, setMakePdf] = useState(false);
-  const [saveMode, setSaveMode] = useState('all'); // 'all' | 'pdf_only'
+  const [saveMode, setSaveMode] = useState('pdf_only'); // 'all' | 'pdf_only'
+  const [pdfMode, setPdfMode] = useState('combined'); // 'combined' | 'separate'
   const [pdfPageSize, setPdfPageSize] = useState('a4'); // a4, letter, legal, a3, a5
   const [pdfName, setPdfName] = useState('converted_images.pdf');
 
@@ -40,21 +39,6 @@ function ImageConverter() {
     else setFiles(prev => prev.filter(f => f.id !== identifier.id));
   };
 
-  const selectOutputFolder = async () => {
-    try {
-      const handle = await window.showDirectoryPicker();
-      if (handle) {
-        setOutputHandle(handle);
-        setOutputFolderName(handle.name);
-      }
-    } catch (err) {
-      console.error("Folder selection cancelled/failed", err);
-      if (err.name !== 'AbortError') {
-        alert("Folder selection not supported or failed. Using Zip download.");
-      }
-    }
-  };
-
   const processFiles = async () => {
     if (files.length === 0) return;
     setIsConverting(true);
@@ -68,9 +52,6 @@ function ImageConverter() {
     for (let i = 0; i < files.length; i++) {
       if (files[i].status === 'done') {
         convertedBlobs.push({ blob: files[i].blob, name: files[i].newName });
-        // Assuming previously done files were already saved if needed, or we re-save them if logical? 
-        // For simplicity, we won't re-save "done" files to disk to avoid duplicates, 
-        // but we DO need them for the PDF.
         continue;
       }
 
@@ -94,18 +75,9 @@ function ImageConverter() {
 
         convertedBlobs.push({ blob: result.blob, name: result.fileName });
 
-        // Save individual files ONLY if saveMode is 'all'
+        // Always add to ZIP if saveMode is 'all'
         if (saveMode === 'all') {
-            if (outputHandle) {
-               try {
-                 const fileHandle = await outputHandle.getFileHandle(result.fileName, { create: true });
-                 const writable = await fileHandle.createWritable();
-                 await writable.write(result.blob);
-                 await writable.close();
-               } catch(e) { console.error(e); }
-            } else {
-               zip.file(result.fileName, result.blob);
-            }
+          zip.file(result.fileName, result.blob);
         }
 
       } catch (error) {
@@ -119,53 +91,84 @@ function ImageConverter() {
 
     // Generate PDF if enabled
     let pdfBlob = null;
+    const separatePdfBlobs = [];
+    
     if (makePdf && convertedBlobs.length > 0) {
        try {
-         const doc = new jsPDF({ format: pdfPageSize, orientation: 'portrait' });
-         for (let j = 0; j < convertedBlobs.length; j++) {
-            if (j > 0) doc.addPage(pdfPageSize, 'portrait');
-            const imgBlob = convertedBlobs[j].blob;
-            const imgUrl = URL.createObjectURL(imgBlob);
-            const imgProps = doc.getImageProperties(imgUrl);
-            const pdfWidth = doc.internal.pageSize.getWidth();
-            const pdfHeight = doc.internal.pageSize.getHeight();
-             
-            // Maintain Aspect Ratio logic
-            const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
-            const w = imgProps.width * ratio;
-            const h = imgProps.height * ratio;
-            const x = (pdfWidth - w) / 2;
-            const y = (pdfHeight - h) / 2;
-            doc.addImage(imgUrl, 'JPEG', x, y, w, h);
-         }
-         pdfBlob = doc.output('blob');
-         
-         // If outputHandle selected, save PDF there
-         if (outputHandle) {
-            const fileHandle = await outputHandle.getFileHandle(pdfName, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(pdfBlob);
-            await writable.close();
+         if (pdfMode === 'combined') {
+           // Combined mode: One PDF with all images
+           const doc = new jsPDF({ format: pdfPageSize, orientation: 'portrait' });
+           for (let j = 0; j < convertedBlobs.length; j++) {
+              if (j > 0) doc.addPage(pdfPageSize, 'portrait');
+              const imgBlob = convertedBlobs[j].blob;
+              const imgUrl = URL.createObjectURL(imgBlob);
+              const imgProps = doc.getImageProperties(imgUrl);
+              const pdfWidth = doc.internal.pageSize.getWidth();
+              const pdfHeight = doc.internal.pageSize.getHeight();
+               
+              const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+              const w = imgProps.width * ratio;
+              const h = imgProps.height * ratio;
+              const x = (pdfWidth - w) / 2;
+              const y = (pdfHeight - h) / 2;
+              doc.addImage(imgUrl, 'JPEG', x, y, w, h);
+              URL.revokeObjectURL(imgUrl);
+           }
+           pdfBlob = doc.output('blob');
+         } else {
+           // Separate mode: One PDF per image
+           for (let j = 0; j < convertedBlobs.length; j++) {
+              const doc = new jsPDF({ format: pdfPageSize, orientation: 'portrait' });
+              const imgBlob = convertedBlobs[j].blob;
+              const imgUrl = URL.createObjectURL(imgBlob);
+              const imgProps = doc.getImageProperties(imgUrl);
+              const pdfWidth = doc.internal.pageSize.getWidth();
+              const pdfHeight = doc.internal.pageSize.getHeight();
+               
+              const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+              const w = imgProps.width * ratio;
+              const h = imgProps.height * ratio;
+              const x = (pdfWidth - w) / 2;
+              const y = (pdfHeight - h) / 2;
+              doc.addImage(imgUrl, 'JPEG', x, y, w, h);
+              URL.revokeObjectURL(imgUrl);
+              
+              const singlePdfBlob = doc.output('blob');
+              const pdfFileName = convertedBlobs[j].name.replace(/\.[^/.]+$/, '') + '.pdf';
+              separatePdfBlobs.push({ blob: singlePdfBlob, name: pdfFileName });
+           }
          }
        } catch (err) {
          console.error("PDF Error", err);
        }
     }
 
-    // Handle downloads based on save mode
-    if (!outputHandle) {
-      if (saveMode === 'pdf_only' && pdfBlob) {
-        // PDF Only mode: download just the PDF directly
+    // Handle downloads - always uses browser's default download folder
+    if (saveMode === 'pdf_only') {
+      // PDF Only mode
+      if (pdfMode === 'combined' && pdfBlob) {
         saveAs(pdfBlob, pdfName);
-      } else if (saveMode === 'all') {
-        // All mode: create ZIP with images + PDF
-        if (pdfBlob) {
-          zip.file(pdfName, pdfBlob);
+      } else if (pdfMode === 'separate' && separatePdfBlobs.length > 0) {
+        // Multiple separate PDFs - create ZIP
+        const pdfZip = new JSZip();
+        for (const pdf of separatePdfBlobs) {
+          pdfZip.file(pdf.name, pdf.blob);
         }
-        if (Object.keys(zip.files).length > 0) {
-          const content = await zip.generateAsync({ type: "blob" });
-          saveAs(content, "converted_images.zip");
+        const content = await pdfZip.generateAsync({ type: "blob" });
+        saveAs(content, "converted_pdfs.zip");
+      }
+    } else if (saveMode === 'all') {
+      // All mode: create ZIP with images + PDF(s)
+      if (pdfMode === 'combined' && pdfBlob) {
+        zip.file(pdfName, pdfBlob);
+      } else if (pdfMode === 'separate') {
+        for (const pdf of separatePdfBlobs) {
+          zip.file(pdf.name, pdf.blob);
         }
+      }
+      if (Object.keys(zip.files).length > 0) {
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, "converted_images.zip");
       }
     }
 
@@ -217,20 +220,6 @@ function ImageConverter() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="setting-group">
-              <label className="setting-label">Output Destination</label>
-              <button 
-                onClick={selectOutputFolder}
-                className={clsx("folder-btn", outputFolderName && "selected")}
-              >
-                {outputFolderName ? (
-                  <><Check size={18} /> {outputFolderName}</>
-                ) : (
-                  <><FolderOpen size={18} /> Select Output Folder</>
-                )}
-              </button>
             </div>
             
             {/* Quality Slider (Conditional) */}
@@ -294,22 +283,53 @@ function ImageConverter() {
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="setting-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Save Options</label>
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <div className={clsx("w-4 h-4 rounded-full border flex items-center justify-center transition-colors", saveMode === 'all' ? "border-primary" : "border-slate-500 group-hover:border-slate-400")}>
-                        {saveMode === 'all' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                      </div>
-                      <input type="radio" name="saveMode" value="all" checked={saveMode === 'all'} onChange={() => setSaveMode('all')} className="hidden" />
-                      <span className={clsx("text-sm", saveMode === 'all' ? "text-white" : "text-slate-400")}>Save Converted Images + PDF (ZIP)</span>
+                  <div className="save-options">
+                    <label className="setting-label" style={{ marginBottom: '0.5rem', display: 'block' }}>PDF Mode</label>
+                    <label className="radio-option">
+                      <input 
+                        type="radio" 
+                        name="pdfMode" 
+                        value="combined" 
+                        checked={pdfMode === 'combined'} 
+                        onChange={() => setPdfMode('combined')} 
+                      />
+                      <span className="radio-label">One PDF (All Images Combined)</span>
                     </label>
                     
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <div className={clsx("w-4 h-4 rounded-full border flex items-center justify-center transition-colors", saveMode === 'pdf_only' ? "border-primary" : "border-slate-500 group-hover:border-slate-400")}>
-                        {saveMode === 'pdf_only' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                      </div>
-                      <input type="radio" name="saveMode" value="pdf_only" checked={saveMode === 'pdf_only'} onChange={() => setSaveMode('pdf_only')} className="hidden" />
-                      <span className={clsx("text-sm", saveMode === 'pdf_only' ? "text-white" : "text-slate-400")}>Save PDF Only</span>
+                    <label className="radio-option">
+                      <input 
+                        type="radio" 
+                        name="pdfMode" 
+                        value="separate" 
+                        checked={pdfMode === 'separate'} 
+                        onChange={() => setPdfMode('separate')} 
+                      />
+                      <span className="radio-label">Separate PDFs (One Per Image)</span>
+                    </label>
+                  </div>
+
+                  <div className="save-options">
+                    <label className="setting-label" style={{ marginBottom: '0.5rem', display: 'block' }}>Save Options</label>
+                    <label className="radio-option">
+                      <input 
+                        type="radio" 
+                        name="saveMode" 
+                        value="all" 
+                        checked={saveMode === 'all'} 
+                        onChange={() => setSaveMode('all')} 
+                      />
+                      <span className="radio-label">Save Converted Images + PDF(s) (ZIP)</span>
+                    </label>
+                    
+                    <label className="radio-option">
+                      <input 
+                        type="radio" 
+                        name="saveMode" 
+                        value="pdf_only" 
+                        checked={saveMode === 'pdf_only'} 
+                        onChange={() => setSaveMode('pdf_only')} 
+                      />
+                      <span className="radio-label">Save PDF(s) Only</span>
                     </label>
                   </div>
                 </div>

@@ -281,6 +281,39 @@ body {
   color: var(--primary);
 }
 
+/* Compact drop zone when files present */
+.drop-zone.compact {
+  padding: 1rem;
+  border-style: solid;
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.drop-zone.compact .drop-zone-icon {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 0.5rem;
+}
+
+.drop-zone.compact h3 {
+  font-size: 0.9rem;
+  margin-bottom: 0.1rem;
+}
+
+.drop-zone.compact p {
+  font-size: 0.75rem;
+}
+
+.drop-zone.compact>div {
+  margin-bottom: 0.75rem !important;
+}
+
+/* Unified Drop Zone Container */
+.unified-dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 /* File List */
 .file-list-container {
   background: rgba(15, 23, 42, 0.4);
@@ -819,6 +852,7 @@ input:checked+.slider:before {
   justify-content: space-between;
   border-bottom: 1px solid var(--surface-border);
 }
+
 /* Bijoy Font Class */
 .bijoy-font {
   font-family: 'SutonnyMJ', 'SutonnyOMJ', 'SutonnyEMJ', 'Nikosh', Arial, sans-serif;
@@ -997,7 +1031,9 @@ input:checked+.slider:before {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-.text-success { color: var(--success); }
+.text-success {
+  color: var(--success);
+}
 
 /* ===== IMAGE CONVERTER LAYOUT ===== */
 .image-converter-layout {
@@ -1021,4 +1057,204 @@ input:checked+.slider:before {
 .settings-panel {
   position: sticky;
   top: 80px;
+}
+
+/* ===== RADIO OPTIONS ===== */
+.save-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--primary);
+}
+
+.radio-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--surface-border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radio-option input[type="radio"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.radio-option input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+}
+
+.radio-label {
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+/* Simple File List (no animation - faster) */
+.files-list-simple {
+  flex: 1;
+  padding: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.file-item-simple {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.25rem;
+  transition: background 0.15s;
+}
+
+.file-item-simple:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.file-item-simple .file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-item-simple .file-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item-simple .file-meta {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===== DRAGGABLE FILE LIST ===== */
+.files-list-drag {
+  flex: 1;
+  padding: 0.5rem;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+}
+
+.file-item-drag {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.35rem;
+  border: 1px solid transparent;
+  cursor: grab;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.file-item-drag:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--surface-border);
+}
+
+.file-item-drag:active {
+  cursor: grabbing;
+}
+
+.drag-handle {
+  color: var(--text-muted);
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.file-item-drag:hover .drag-handle {
+  opacity: 1;
+}
+
+.file-item-drag .file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-item-drag .file-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-main);
+}
+
+.file-item-drag .file-meta {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* Dynamic height for drop zone */
+.unified-drop-zone.has-files {
+  height: auto;
+  min-height: auto;
+}
+
+.drop-zone-with-files {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
